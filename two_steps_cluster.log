@@ -1,0 +1,685 @@
+NOTE: PROCEDURE PRINTTO used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+7    
+8    options user=clus;
+
+9    /***1.data explo***/
+10   
+11   /***1.1obtain the # of var***/
+12   proc contents data=clus.banktr noprint out=p;
+NOTE: Writing HTML Body file: sashtml.htm
+13   run;
+
+NOTE: The data set CLUS.P has 9 observations and 40 variables.
+NOTE: PROCEDURE CONTENTS used (Total process time):
+      real time           0.35 seconds
+      cpu time            0.25 seconds
+      
+
+14   
+15   proc sql;
+16   select name into:var separated by ' '
+17   from p
+18   ;
+19   quit;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.03 seconds
+      
+
+20   
+21   %put &var;
+acquire adbdda atmct atres ddadep ddatot income invest savbal
+22   proc contents data=clus.banktr noprint out=p;
+23   run;
+
+NOTE: The data set CLUS.P has 9 observations and 40 variables.
+NOTE: PROCEDURE CONTENTS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+24   proc sql;
+25   select name into:var separated by ' '
+26   from p
+27   ;
+28   quit;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+29   %put &var;
+acquire adbdda atmct atres ddadep ddatot income invest savbal
+30   proc contents data=clus.banktr noprint out=clus.p;
+31   run;
+
+NOTE: The data set CLUS.P has 9 observations and 40 variables.
+NOTE: PROCEDURE CONTENTS used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+32   
+33   proc sql;
+34   select name into:var separated by ' '
+35   from p
+36   ;
+37   quit;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+38   
+39   %put &var;
+acquire adbdda atmct atres ddadep ddatot income invest savbal
+40   
+41   /****1.2compress var by principal components analysis***/
+42   
+43   proc princomp data=clus.banktr out=clus.out_prin;
+44   var &var;
+45   run;
+
+NOTE: The data set CLUS.OUT_PRIN has 2000 observations and 18 variables.
+NOTE: PROCEDURE PRINCOMP used (Total process time):
+      real time           0.74 seconds
+      cpu time            0.32 seconds
+      
+
+46   proc varclus data=clus.banktr MAXEIGEN=0.75 outtree=fortree;
+47   var &var;
+48   run;
+
+NOTE: Clustering algorithm converged.
+NOTE: Clustering algorithm converged.
+NOTE: Clustering algorithm converged.
+NOTE: Clustering algorithm converged.
+NOTE: Clustering algorithm converged.
+NOTE: Clustering algorithm converged.
+NOTE: Clustering algorithm converged.
+NOTE: The data set CLUS.FORTREE has 17 observations and 8 variables.
+NOTE: PROCEDURE VARCLUS used (Total process time):
+      real time           0.30 seconds
+      cpu time            0.14 seconds
+      
+
+49   %let input=ddatot savbal income invest atmct atres adbdda;
+50   proc stdize data=clus.banktr(keep=&input) method=range
+51   outstat=stat_out out=out_std;
+52   var &input;
+53   run;
+
+NOTE: There were 2000 observations read from the data set CLUS.BANKTR.
+NOTE: The data set CLUS.STAT_OUT has 8 observations and 8 variables.
+NOTE: The data set CLUS.OUT_STD has 2000 observations and 7 variables.
+NOTE: PROCEDURE STDIZE used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+54   proc fastclus data=out_std maxc=50 out=out_fstcl outstat=fst_out drift;
+55   var  &input ;
+56   run;
+
+NOTE: The data set CLUS.OUT_FSTCL has 2000 observations and 9 variables.
+NOTE: The data set CLUS.FST_OUT has 260 observations and 10 variables.
+NOTE: PROCEDURE FASTCLUS used (Total process time):
+      real time           0.07 seconds
+      cpu time            0.07 seconds
+      
+
+57   proc means data=out_fstcl nway;
+58   class CLUSTER;
+59   var &input;
+60   output out=out_mean mean=;
+61   run;
+
+NOTE: There were 2000 observations read from the data set CLUS.OUT_FSTCL.
+NOTE: The data set CLUS.OUT_MEAN has 50 observations and 10 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.18 seconds
+      cpu time            0.07 seconds
+      
+
+62   proc cluster data=out_mean(keep=&input  CLUSTER rename=(CLUSTER=CLUSTER1))
+63   ccc pseudo method=ward outtree=fortree2;
+64   var &input;
+65   copy CLUSTER1 ;
+66   run;
+
+NOTE: The data set CLUS.FORTREE2 has 99 observations and 24 variables.
+NOTE: PROCEDURE CLUSTER used (Total process time):
+      real time           0.51 seconds
+      cpu time            0.17 seconds
+      
+
+67   proc tree data=fortree2 level=0.008 out=tree;
+68   run;
+
+NOTE: 2 records written to C:\Users\IVAN~1.LIU\AppData\Local\Temp\SAS Temporary 
+      Files\_TD9800_IVAN_LIU_\tree.png.
+NOTE: The data set CLUS.TREE has 50 observations and 3 variables.
+NOTE: PROCEDURE TREE used (Total process time):
+      real time           0.46 seconds
+      cpu time            0.39 seconds
+      
+
+69   proc tree data=fortree2 nclusters=8 out=out_tree;
+70   copy CLUSTER1 ;
+71   run;
+
+NOTE: 2 records written to C:\Users\IVAN~1.LIU\AppData\Local\Temp\SAS Temporary 
+      Files\_TD9800_IVAN_LIU_\tree1.png.
+NOTE: The data set CLUS.OUT_TREE has 50 observations and 4 variables.
+NOTE: PROCEDURE TREE used (Total process time):
+      real time           0.49 seconds
+      cpu time            0.47 seconds
+      
+
+72   proc sql;
+73       create table result as
+74       select a.*,b.cluster as big_clus,
+75       1 as flag
+76       from out_fstcl as a
+77       left join out_tree as b
+78         on a.cluster = b.cluster1
+79       ;
+NOTE: Table CLUS.RESULT created, with 2000 rows and 11 columns.
+
+80   quit;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.03 seconds
+      
+
+81   proc stdize data=clus.bankte(keep=&input) method=in(stat_out) out=score_std;
+82   run;
+
+NOTE: No VAR statement is given. All numerical variables not named elsewhere make up the first 
+      set of variables.
+NOTE: There were 1000 observations read from the data set CLUS.BANKTE.
+NOTE: There were 8 observations read from the data set CLUS.STAT_OUT.
+NOTE: The data set CLUS.SCORE_STD has 1000 observations and 7 variables.
+NOTE: PROCEDURE STDIZE used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+83   proc fastclus data=score_std instat=fst_out out=score_fst;
+84   run;
+
+NOTE: 50 clusters in the INSTAT=CLUS.FST_OUT.DATA data set.
+NOTE: There were 260 observations read from the data set CLUS.FST_OUT.
+NOTE: The data set CLUS.SCORE_FST has 1000 observations and 9 variables.
+NOTE: PROCEDURE FASTCLUS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+85   proc sql;
+86   create table dis_clu as
+87   select distinct
+88   big_clus,cluster
+89   from result;
+NOTE: Table CLUS.DIS_CLU created, with 50 rows and 2 columns.
+
+90   quit;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+91   proc sql;
+92   create table score_result as
+93   select
+94   b.*,
+95   a.big_clus,
+96   2 as flag
+97   from dis_clu as a
+98   join score_fst as b
+99   on a.cluster=b.cluster
+100  ;
+NOTE: Table CLUS.SCORE_RESULT created, with 1000 rows and 11 columns.
+
+101  quit;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+102  proc means data=result nway;
+103  class big_clus;
+104  var &input;
+105  output out=train_mean mean=;
+106  run;
+
+NOTE: There were 2000 observations read from the data set CLUS.RESULT.
+NOTE: The data set CLUS.TRAIN_MEAN has 8 observations and 10 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.04 seconds
+      
+
+107  proc means data=score_result nway;
+108  class big_clus;
+109  var &input;
+110  output out=valid_mean mean=;
+111  run;
+
+NOTE: There were 1000 observations read from the data set CLUS.SCORE_RESULT.
+NOTE: The data set CLUS.VALID_MEAN has 8 observations and 10 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+112  /* create library Fitness */
+113  libname clus
+113! "C:\Users\Ivan.Liuyanfeng\Desktop\Data_Mining_Work_Space\Bank_clients_cluster";
+ERROR: Unable to clear or re-assign the library CLUS because it is still in use.
+ERROR: Error in the LIBNAME statement.
+114  
+115  /* redirect log to handle the log limitations */
+116  proc printto
+116! log="C:\Users\Ivan.Liuyanfeng\Desktop\Data_Mining_Work_Space\Bank_clients_cluster\two_step
+116! s_cluster.log";
+117  run;
+
+NOTE: PROCEDURE PRINTTO used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+118  
+119  options user=clus;
+120  ods pdf file =
+120! 'C:\Users\Ivan.Liuyanfeng\Desktop\Data_Mining_Work_Space\Bank_clients_cluster\two_steps_cl
+120! uster.pdf';
+NOTE: Writing ODS PDF output to DISK destination 
+      "C:\Users\Ivan.Liuyanfeng\Desktop\Data_Mining_Work_Space\Bank_clients_cluster\two_steps_c
+      luster.pdf", printer "PDF".
+121  
+122  /***1.data explo***/
+123  
+124  /***1.1 obtain the # of var***/
+125  proc contents data=clus.banktr noprint out=clus.p;
+126  run;
+
+NOTE: The data set CLUS.P has 9 observations and 40 variables.
+NOTE: PROCEDURE CONTENTS used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+127  
+128  proc sql;
+129  select name into:var separated by ' '
+130  from p
+131  ;
+132  quit;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+133  
+134  %put &var;
+acquire adbdda atmct atres ddadep ddatot income invest savbal
+135  
+136  /****1.2 compress var by principal components analysis***/
+137  
+138  proc princomp data=clus.banktr out=clus.out_prin;
+139  var &var;
+140  run;
+
+NOTE: The data set CLUS.OUT_PRIN has 2000 observations and 18 variables.
+NOTE: PROCEDURE PRINCOMP used (Total process time):
+      real time           0.50 seconds
+      cpu time            0.20 seconds
+      
+
+141  
+142  /****1.3 adjust MAXEIGEN value by PCA*/
+143  proc varclus data=clus.banktr MAXEIGEN=0.75 outtree=fortree;
+144  var &var;
+145  run;
+
+NOTE: Clustering algorithm converged.
+NOTE: Clustering algorithm converged.
+NOTE: Clustering algorithm converged.
+NOTE: Clustering algorithm converged.
+NOTE: Clustering algorithm converged.
+NOTE: Clustering algorithm converged.
+NOTE: Clustering algorithm converged.
+NOTE: The data set CLUS.FORTREE has 17 observations and 8 variables.
+NOTE: PROCEDURE VARCLUS used (Total process time):
+      real time           0.34 seconds
+      cpu time            0.21 seconds
+      
+
+146  
+147  
+148  /***1.4 confirm the final # of var****/
+149  %let input=ddatot savbal income invest atmct atres adbdda;
+150  
+151  /***1.5 Range standardization transformation***/
+152  proc stdize data=clus.banktr(keep=&input) method=range
+153  outstat=stat_out out=out_std;
+154  var &input;
+155  run;
+
+NOTE: There were 2000 observations read from the data set CLUS.BANKTR.
+NOTE: The data set CLUS.STAT_OUT has 8 observations and 8 variables.
+NOTE: The data set CLUS.OUT_STD has 2000 observations and 7 variables.
+NOTE: PROCEDURE STDIZE used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+156  
+157  /****2.Initial cluster****/
+158  
+159  /***2.1 fast cluster***/
+160  proc fastclus data=out_std maxc=50 out=out_fstcl outstat=fst_out drift;
+161  var  &input ;
+162  run;
+
+NOTE: The data set CLUS.OUT_FSTCL has 2000 observations and 9 variables.
+NOTE: The data set CLUS.FST_OUT has 260 observations and 10 variables.
+NOTE: PROCEDURE FASTCLUS used (Total process time):
+      real time           0.10 seconds
+      cpu time            0.11 seconds
+      
+
+163  
+164  /***2.2 obtain mean*/
+165  proc means data=out_fstcl nway;
+166  class CLUSTER;
+167  var &input;
+168  output out=out_mean mean=;
+169  run;
+
+NOTE: There were 2000 observations read from the data set CLUS.OUT_FSTCL.
+NOTE: The data set CLUS.OUT_MEAN has 50 observations and 10 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.13 seconds
+      cpu time            0.12 seconds
+      
+
+170  
+171  /****2.3 second cluster by WARD***/
+172  proc cluster data=out_mean(keep=&input  CLUSTER rename=(CLUSTER=CLUSTER1))
+173  ccc pseudo method=ward outtree=fortree2;
+174  var &input;
+175  copy CLUSTER1 ;
+176  run;
+
+NOTE: The data set CLUS.FORTREE2 has 99 observations and 24 variables.
+NOTE: PROCEDURE CLUSTER used (Total process time):
+      real time           0.56 seconds
+      cpu time            0.20 seconds
+      
+
+177  
+178  /***2.4 compare CCC;PSEUDO value***/
+179  proc tree data=fortree2 level=0.008 out=tree;
+180  run;
+
+NOTE: 2 records written to C:\Users\IVAN~1.LIU\AppData\Local\Temp\SAS Temporary 
+      Files\_TD9800_IVAN_LIU_\tree2.png.
+NOTE: The data set CLUS.TREE has 50 observations and 3 variables.
+NOTE: PROCEDURE TREE used (Total process time):
+      real time           0.52 seconds
+      cpu time            0.45 seconds
+      
+
+181  
+182  proc tree data=fortree2 nclusters=8 out=out_tree;
+183  copy CLUSTER1 ;
+184  run;
+
+NOTE: 2 records written to C:\Users\IVAN~1.LIU\AppData\Local\Temp\SAS Temporary 
+      Files\_TD9800_IVAN_LIU_\tree3.png.
+NOTE: The data set CLUS.OUT_TREE has 50 observations and 4 variables.
+NOTE: PROCEDURE TREE used (Total process time):
+      real time           0.34 seconds
+      cpu time            0.32 seconds
+      
+
+185  
+186  
+187  proc sql;
+188      create table result as
+189      select a.*,b.cluster as big_clus,
+190      1 as flag
+191      from out_fstcl as a
+192      left join out_tree as b
+193        on a.cluster = b.cluster1
+194      ;
+NOTE: Table CLUS.RESULT created, with 2000 rows and 11 columns.
+
+195  quit;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+196  
+197  
+198  /*****2.Model validation****/
+199  
+200  /***2.1 standardization***/
+201  proc stdize data=clus.bankte(keep=&input) method=in(stat_out) out=score_std;
+202  run;
+
+NOTE: No VAR statement is given. All numerical variables not named elsewhere make up the first 
+      set of variables.
+NOTE: There were 1000 observations read from the data set CLUS.BANKTE.
+NOTE: There were 8 observations read from the data set CLUS.STAT_OUT.
+NOTE: The data set CLUS.SCORE_STD has 1000 observations and 7 variables.
+NOTE: PROCEDURE STDIZE used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+203  
+204  /***2.2fast cluster***/
+205  proc fastclus data=score_std instat=fst_out out=score_fst;
+206  run;
+
+NOTE: 50 clusters in the INSTAT=CLUS.FST_OUT.DATA data set.
+NOTE: There were 260 observations read from the data set CLUS.FST_OUT.
+NOTE: The data set CLUS.SCORE_FST has 1000 observations and 9 variables.
+NOTE: PROCEDURE FASTCLUS used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+207  
+208  /***2.3 results****/
+209  proc sql;
+210  create table dis_clu as
+211  select distinct
+212  big_clus,cluster
+213  from result;
+NOTE: Table CLUS.DIS_CLU created, with 50 rows and 2 columns.
+
+214  quit;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+215  
+216  proc sql;
+217  create table score_result as
+218  select
+219  b.*,
+220  a.big_clus,
+221  2 as flag
+222  from dis_clu as a
+223  join score_fst as b
+224  on a.cluster=b.cluster
+225  ;
+NOTE: Table CLUS.SCORE_RESULT created, with 1000 rows and 11 columns.
+
+226  quit;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+227  
+228  /****3.NABIVA***/
+229  
+230  /***3.1 training data***/
+231  proc means data=result nway;
+232  class big_clus;
+233  var &input;
+234  output out=train_mean mean=;
+235  run;
+
+NOTE: There were 2000 observations read from the data set CLUS.RESULT.
+NOTE: The data set CLUS.TRAIN_MEAN has 8 observations and 10 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.04 seconds
+      
+
+236  
+237  /**3.2 testing data**/
+238  proc means data=score_result nway;
+239  class big_clus;
+240  var &input;
+241  output out=valid_mean mean=;
+242  run;
+
+NOTE: There were 1000 observations read from the data set CLUS.SCORE_RESULT.
+NOTE: The data set CLUS.VALID_MEAN has 8 observations and 10 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+243  
+244  /**3.4 training manova****/
+245  proc glm data=result;
+246  class big_clus;
+247  model &input=big_clus/;
+248  means big_clus;
+249    manova h = _all_;
+250  run;
+
+251  quit;
+
+NOTE: PROCEDURE GLM used (Total process time):
+      real time           3.96 seconds
+      cpu time            1.40 seconds
+      
+
+252  
+253  /**3.4 testing manova****/
+254  proc glm data=score_result;
+255  class big_clus;
+256  model &input=big_clus/;
+257  means big_clus;
+258    manova h = _all_;
+259  run;
+
+260  quit;
+
+NOTE: PROCEDURE GLM used (Total process time):
+      real time           3.12 seconds
+      cpu time            1.29 seconds
+      
+
+261  
+262  
+263  /**/
+264  /*/***3.5 manova of train and test**/*/
+265  /*%macro com(num);*/
+266  /*data comp ;*/
+267  /*set result(where=(big_clus=&num)) score_result(where=(big_clus=&num));*/
+268  /*run;*/
+269  /**/
+270  /*proc glm data=comp;*/
+271  /*class flag;*/
+272  /*model &input=flag/solution nouni;*/
+273  /*means flag / tukey;*/
+274  /*  manova h = _all_;*/
+275  /*run;*/
+276  /*quit;*/
+277  /*%mend com;*/
+278  /**/
+279  /*%com(1);*/
+280  /*%com(2);*/
+281  /*%com(3);*/
+282  /*%com(4);*/
+283  /*%com(5);*/
+284  /*%com(6);*/
+285  /*%com(7);*/
+286  /*%com(8);*/
+287  
+288  /**/
+289  /****4.migration***/
+290  
+291  data migr1;
+292  set result(obs=1000 keep=big_clus rename=(big_clus=pvt_clus));
+     ---
+     180
+
+ERROR 180-322: Statement is not valid or it is used out of proper order.
+
+293  run;
+294  
+295  data migr2;
+296  set score_result(keep=big_clus rename=(big_clus=lst_clus));
+297  run;
+
+NOTE: There were 1000 observations read from the data set CLUS.SCORE_RESULT.
+NOTE: The data set CLUS.MIGR2 has 1000 observations and 1 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+298  
+299  data migr;
+300  merge migr1 migr2;
+ERROR: File CLUS.MIGR1.DATA does not exist.
+301  run;
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set CLUS.MIGR may be incomplete.  When this step was stopped there were 0 
+         observations and 1 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+302  
+303  proc freq data=migr;
+304  table pvt_clus*lst_clus/NOPERCENT NOCOL NOROW chisq;
+ERROR: Variable PVT_CLUS not found.
+305  run;
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE FREQ used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+306  
+307  ods pdf close;
+NOTE: ODS PDF printed 75 pages to 
+      C:\Users\Ivan.Liuyanfeng\Desktop\Data_Mining_Work_Space\Bank_clients_cluster\two_steps_cl
+      uster.pdf.
+
+NOTE: SAS Institute Inc., SAS Campus Drive, Cary, NC USA 27513-2414
+NOTE: The SAS System used:
+      real time           19:42.77
+      cpu time            1:22.43
+      
